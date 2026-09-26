@@ -118,6 +118,92 @@ Frontend runs at `http://localhost:8501`.
 6. When an operator clicks **Dispatch**, the system filters available matching resources, checks real road distance via Geoapify's Routing API, and assigns the best-scoring one
 7. A MySQL trigger automatically updates the resource's and emergency's status once the dispatch is recorded
 
+##  Run Locally
+
+The commands below are run from the repository root in two PowerShell terminals.
+
+### 1. Create an environment and install dependencies
+
+```powershell
+py -m venv .venv
+.\.venv\Scripts\Activate.ps1
+pip install -r backend\requirements.txt
+pip install -r frontend_streamlit\requirements.txt
+```
+
+### 2. Create the database and configuration
+
+Start MySQL, then run:
+
+```powershell
+mysql -u root -p < database\schema.sql
+Copy-Item backend\.env.example backend\.env
+```
+
+Edit `backend/.env` with your MySQL password. Add a Geoapify key for address lookup, road routing, and the static map. Without a key, enter a location as `latitude,longitude`; routing uses a local Haversine estimate and the rest of the application remains usable.
+
+### 3. Start the API
+
+```powershell
+\.venv\Scripts\Activate.ps1
+uvicorn backend.main:app --reload
+```
+
+Test `http://localhost:8000/health` and use `http://localhost:8000/docs` for the interactive API.
+
+### 4. Start Streamlit
+
+In a second terminal:
+
+```powershell
+\.venv\Scripts\Activate.ps1
+streamlit run frontend_streamlit\app.py
+```
+
+Open `http://localhost:8501`, create an account, and use the sidebar pages. Use an `admin` account to add ambulances and fire trucks. Operators can dispatch and resolve emergencies.
+
+##  ML Training
+
+The default priority calculation is deterministic and does not require a model. It uses severity points plus a capped people-affected bonus. The optional model learns the same two input features from a CSV and is loaded only when `USE_ML_PRIORITY=true`.
+
+### Training data location and format
+
+Put training data at `backend/ml/training_data.csv`. It must contain these numeric columns:
+
+```csv
+severity_points,people_affected,priority_score
+20,1,22
+50,5,60
+100,15,100
+```
+
+`severity_points` should normally be `20` (low), `50` (medium), `75` (high), or `100` (critical). `priority_score` is the target value from 0 to 100. Replace the sample CSV with historical, reviewed incidents only; do not put passwords, names, addresses, or other personally identifying information into the training file.
+
+### Generate, train, and enable the model
+
+```powershell
+python -m backend.ml.generate_simulation_data
+python -m backend.ml.train_model
+```
+
+Training writes `backend/ml/priority_model.joblib`. This binary artifact is ignored by Git and is loaded by `priority_service.py`. To enable it, set this in `backend/.env`, then restart FastAPI:
+
+```env
+USE_ML_PRIORITY=true
+MODEL_PATH=backend/ml/priority_model.joblib
+```
+
+The training command prints the test mean absolute error. Keep that metric with the dataset version when comparing models. Re-run training whenever the CSV changes. The API health endpoint reports whether the artifact exists and whether formula or ML scoring is active.
+
+##  API Authentication Flow
+
+1. `POST /register` with a name, email, password, and role.
+2. `POST /login` to receive a JWT and role.
+3. Send `Authorization: Bearer <token>` on protected requests.
+4. Citizens can report emergencies; operators can view/dispatch/resolve; admins can also add resources.
+
+For a no-key smoke test, register a user, add resources using coordinates such as `40.7128,-74.0060`, report an emergency using the same coordinate format, and dispatch it from the operator dashboard.
+
 ---
 
 ##  API Overview
