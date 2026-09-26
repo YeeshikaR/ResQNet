@@ -30,20 +30,23 @@ def address_to_coords(address: str) -> tuple[float, float]:
 def get_distance_km(origin: tuple[float, float], destination: tuple[float, float]) -> float:
     if not GEOAPIFY_API_KEY:
         return _haversine_km(origin, destination) * 1.25
-    response = requests.get(
-        'https://api.geoapify.com/v1/routing',
-        params={
-            'waypoints': f'{origin[0]},{origin[1]}|{destination[0]},{destination[1]}',
-            'mode': 'drive',
-            'apiKey': GEOAPIFY_API_KEY,
-        },
-        timeout=15,
-    )
-    response.raise_for_status()
-    features = response.json().get('features', [])
-    if not features:
-        raise ValueError('Geoapify returned no route')
-    return float(features[0]['properties']['distance']) / 1000
+    try:
+        response = requests.get(
+            'https://api.geoapify.com/v1/routing',
+            params={
+                'waypoints': f'{origin[0]},{origin[1]}|{destination[0]},{destination[1]}',
+                'mode': 'drive',
+                'apiKey': GEOAPIFY_API_KEY,
+            },
+            timeout=15,
+        )
+        response.raise_for_status()
+        features = response.json().get('features', [])
+        if features:
+            return float(features[0]['properties']['distance']) / 1000
+    except requests.RequestException:
+        pass
+    return _haversine_km(origin, destination) * 1.25
 
 
 def build_map_url(emergencies: list[dict], resources: list[dict]) -> str | None:

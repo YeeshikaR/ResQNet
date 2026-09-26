@@ -21,3 +21,21 @@ def get_dispatch_report(connection):
             ORDER BY d.dispatched_at DESC
         ''')
         return cursor.fetchall()
+
+
+def complete_dispatch(connection, emergency_id: int) -> int | None:
+    with connection.cursor() as cursor:
+        cursor.execute('SELECT resource_id FROM dispatches WHERE emergency_id = %s', (emergency_id,))
+        dispatch = cursor.fetchone()
+        if not dispatch:
+            return None
+        cursor.execute(
+            'UPDATE resources SET status = \'available\' WHERE resource_id = %s',
+            (dispatch['resource_id'],),
+        )
+        cursor.execute(
+            'UPDATE emergencies SET status = \'resolved\' WHERE emergency_id = %s',
+            (emergency_id,),
+        )
+    connection.commit()
+    return dispatch['resource_id']

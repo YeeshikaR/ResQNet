@@ -29,8 +29,9 @@ class EmergencyCreate(BaseModel):
 class ResourceCreate(BaseModel):
     type: ResourceType
     name: str = Field(min_length=2, max_length=100)
-    latitude: float = Field(ge=-90, le=90)
-    longitude: float = Field(ge=-180, le=180)
+    latitude: float | None = Field(default=None, ge=-90, le=90)
+    longitude: float | None = Field(default=None, ge=-180, le=180)
+    address: str | None = Field(default=None, min_length=3, max_length=300)
 
 
 class TokenResponse(BaseModel):

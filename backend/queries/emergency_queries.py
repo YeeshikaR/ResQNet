@@ -12,8 +12,16 @@ def insert_emergency(connection, reported_by: int, emergency: dict, latitude: fl
 
 
 def get_emergencies(connection, status: str | None = None, reported_by: int | None = None):
-    query = '''SELECT e.*, u.name AS reported_by_name
-               FROM emergencies e JOIN users u ON e.reported_by = u.user_id'''
+    query = '''SELECT e.*, u.name AS reported_by_name,
+                      d.dispatch_id, d.distance_km, d.dispatched_at,
+                      r.resource_id AS assigned_resource_id,
+                      r.name AS assigned_resource_name,
+                      r.type AS assigned_resource_type,
+                      r.status AS assigned_resource_status
+               FROM emergencies e
+               JOIN users u ON e.reported_by = u.user_id
+               LEFT JOIN dispatches d ON d.emergency_id = e.emergency_id
+               LEFT JOIN resources r ON r.resource_id = d.resource_id'''
     params = []
     filters = []
     if status:

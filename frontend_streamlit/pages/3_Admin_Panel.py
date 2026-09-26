@@ -16,12 +16,18 @@ if st.session_state.get('role') != 'admin':
 with st.form('resource_form'):
     resource_type = st.selectbox('Resource type', ['ambulance', 'fire_truck'])
     name = st.text_input('Resource name')
-    latitude = st.number_input('Latitude', min_value=-90.0, max_value=90.0, format='%.6f')
-    longitude = st.number_input('Longitude', min_value=-180.0, max_value=180.0, format='%.6f')
+    location_mode = st.radio('Location format', ['Address', 'GPS coordinates'], horizontal=True)
+    if location_mode == 'Address':
+        address = st.text_input('Resource address', placeholder='Example: Central Fire Station, Mumbai')
+        resource_location = {'address': address}
+    else:
+        latitude = st.number_input('Latitude', min_value=-90.0, max_value=90.0, value=0.0, format='%.6f')
+        longitude = st.number_input('Longitude', min_value=-180.0, max_value=180.0, value=0.0, format='%.6f')
+        resource_location = {'latitude': latitude, 'longitude': longitude}
     submitted = st.form_submit_button('Add resource')
 if submitted:
     try:
-        add_resource(token, {'type': resource_type, 'name': name, 'latitude': latitude, 'longitude': longitude})
+        add_resource(token, {'type': resource_type, 'name': name, **resource_location})
         st.success('Resource added.')
         st.rerun()
     except Exception as error:

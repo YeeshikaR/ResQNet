@@ -23,8 +23,8 @@ def login(email: str, password: str):
     return request('POST', '/login', json={'email': email, 'password': password})
 
 
-def register(name: str, email: str, password: str, role: str = 'citizen'):
-    return request('POST', '/register', json={'name': name, 'email': email, 'password': password, 'role': role})
+def register(name: str, email: str, password: str):
+    return request('POST', '/register', json={'name': name, 'email': email, 'password': password})
 
 
 def emergencies(token: str, status: str | None = None):

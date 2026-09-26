@@ -197,10 +197,10 @@ The training command prints the test mean absolute error. Keep that metric with 
 
 ##  API Authentication Flow
 
-1. `POST /register` with a name, email, password, and role.
+1. `POST /register` with a name, email, and password. New accounts are always citizens.
 2. `POST /login` to receive a JWT and role.
 3. Send `Authorization: Bearer <token>` on protected requests.
-4. Citizens can report emergencies; operators can view/dispatch/resolve; admins can also add resources.
+4. Citizens can report emergencies and view only their own reports. Operators can view, dispatch, and resolve active emergencies. Admins can do operator actions and add resources; neither role can use the citizen reporting endpoint.
 
 For a no-key smoke test, register a user, add resources using coordinates such as `40.7128,-74.0060`, report an emergency using the same coordinate format, and dispatch it from the operator dashboard.
 

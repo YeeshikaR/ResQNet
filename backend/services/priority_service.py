@@ -2,6 +2,7 @@ from pathlib import Path
 from typing import Any
 
 import joblib
+import pandas as pd
 
 from backend.config import MODEL_PATH, USE_ML_PRIORITY
 
@@ -17,7 +18,11 @@ def formula_priority(severity: str, people_affected: int) -> float:
 def calculate_priority(severity: str, people_affected: int) -> float:
     if USE_ML_PRIORITY and Path(MODEL_PATH).exists():
         model = joblib.load(MODEL_PATH)
-        prediction = model.predict([[SEVERITY_POINTS[severity], people_affected]])[0]
+        features = pd.DataFrame([{
+            'severity_points': SEVERITY_POINTS[severity],
+            'people_affected': people_affected,
+        }])
+        prediction = model.predict(features)[0]
         return float(max(0, min(100, prediction)))
     return formula_priority(severity, people_affected)
 

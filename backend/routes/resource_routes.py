@@ -3,11 +3,11 @@ from pymysql.err import IntegrityError
 
 from backend.dependencies import db_connection, require_roles
 from backend.queries.dispatch_queries import get_dispatch_report, insert_dispatch
-from backend.queries.emergency_queries import get_emergency
+from backend.queries.emergency_queries import get_emergencies, get_emergency
 from backend.queries.resource_queries import get_resources, insert_resource
 from backend.schemas import ResourceCreate
 from backend.services.allocation_service import choose_resource
-from backend.services.map_service import build_map_url
+from backend.services.map_service import address_to_coords, build_map_url
 
 router = APIRouter(tags=['resources'])
 
@@ -19,7 +19,16 @@ def list_resources(available_only: bool = False, user=Depends(require_roles('ope
 
 @router.post('/resources', status_code=201)
 def add_resource(payload: ResourceCreate, user=Depends(require_roles('admin')), connection=Depends(db_connection)):
-    resource_id = insert_resource(connection, payload.model_dump())
+    resource = payload.model_dump()
+    if resource['address']:
+        try:
+            resource['latitude'], resource['longitude'] = address_to_coords(resource['address'])
+        except (ValueError, RuntimeError) as error:
+            raise HTTPException(status_code=400, detail=str(error)) from error
+    elif resource['latitude'] is None or resource['longitude'] is None:
+        raise HTTPException(status_code=400, detail='Provide an address or both latitude and longitude')
+    resource.pop('address')
+    resource_id = insert_resource(connection, resource)
     return {'resource_id': resource_id, 'message': 'Resource added'}
 
 
@@ -33,6 +42,7 @@ def dispatch(emergency_id: int, user=Depends(require_roles('operator', 'admin'))
     try:
         resource, distance_km = choose_resource(emergency, get_resources(connection, available_only=True))
         dispatch_id = insert_dispatch(connection, emergency_id, resource['resource_id'], distance_km)
+        resource['status'] = 'dispatched'
     except (ValueError, IntegrityError) as error:
         connection.rollback()
         raise HTTPException(status_code=409, detail=str(error)) from error
