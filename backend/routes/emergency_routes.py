@@ -45,3 +45,7 @@ def resolve_emergency(emergency_id: int, user=Depends(current_user), connection=
     if resource_id is None:
         raise HTTPException(status_code=409, detail='No resource is assigned to this emergency')
     return {'message': 'Task completed; resource is available again', 'resource_id': resource_id}
+    resource_id = complete_dispatch(connection, emergency_id)
+    if resource_id is None:
+        raise HTTPException(status_code=409, detail='No resource is assigned to this emergency')
+    return {'message': 'Task completed; resource is available again', 'resource_id': resource_id}
