@@ -8,7 +8,6 @@ from backend.services.auth_service import create_token, hash_password, verify_pa
 
 router = APIRouter(tags=['auth'])
 
-
 @router.post('/register', status_code=201)
 def register(payload: RegisterRequest, connection=Depends(db_connection)):
     try:
