@@ -1,128 +1,76 @@
-### ResQNet
+# ResQNet
 
-A web-based system that lets citizens report emergencies, automatically scores how urgent each one is, shows live incidents and available resources (ambulances/fire trucks) on a map, and intelligently dispatches the best available unit based on availability, proximity, and severity.
+ResQNet is a role-based emergency reporting and response coordination application. Citizens can report fire, medical, and accident emergencies. The FastAPI backend geocodes locations, calculates a priority score, stores the incident in MySQL, and exposes authenticated API endpoints. Operators can review active incidents, compare compatible available resources by distance, dispatch a unit, and complete tasks. Administrators can add and release ambulances and fire trucks.
 
-Built with **Python, FastAPI, MySQL (raw SQL), Streamlit, and Geoapify**.
+The user interface is a Streamlit application and the backend is a FastAPI application. Geoapify is optional: it provides address geocoding, driving routes, and a static map when an API key is configured. Coordinate input and a local distance fallback keep the application usable for local testing without Geoapify.
 
----
+## Features
 
-##  Features
+- Citizen registration, login, emergency reporting, status tracking, and completion of assigned emergencies
+- Emergency types: `fire`, `medical`, and `accident`
+- Severity levels: `low`, `medium`, `high`, and `critical`
+- Priority scoring from severity and number of people affected, with an optional scikit-learn model
+- Operator dashboard with active incidents sorted by priority and dispatch history
+- Resource matching by emergency type and distance
+  - `fire` emergencies require a `fire_truck`
+  - `medical` and `accident` emergencies require an `ambulance`
+- Admin resource management for adding and releasing units
+- Geoapify static map when configured, otherwise a Streamlit map using stored coordinates
+- MySQL trigger that changes an emergency to `assigned` and a resource to `dispatched` after dispatch
 
-- **Emergency Reporting** — citizens submit incidents with type, severity, people affected, and location (address auto-converted to coordinates)
-- **Priority Scoring** — every emergency gets an urgency score (0–100) based on severity and people affected
-- **Live Map** — emergencies and available resources plotted on a map image, powered by Geoapify
-- **Smart Dispatch** — automatically picks the best available resource using real road distance + priority weighting
-- **Role-Based Access** — citizen, operator, and admin roles with separate dashboards
-- **Auto-Updating Database** — a MySQL trigger keeps resource/emergency statuses in sync the moment a dispatch happens
-- **(Optional) ML Priority Model** — a trained scikit-learn model as an upgrade to the base formula
-
----
-
-##  Tech Stack
+## Tech stack
 
 | Layer | Technology |
-|---|---|
-| Backend API | FastAPI |
-| Database | MySQL (raw SQL via `pymysql`, no ORM) |
+| --- | --- |
+| API | FastAPI and Uvicorn |
+| Database | MySQL with raw SQL through PyMySQL |
 | Frontend | Streamlit |
-| Maps / Location | Geoapify (Geocoding, Routing, Static Maps APIs) |
-| Machine Learning (optional) | scikit-learn |
-| Authentication | JWT (`python-jose`) + `passlib` for password hashing |
+| Authentication | JWT with `python-jose`; password hashing with Passlib/bcrypt |
+| Maps and geocoding | Geoapify, with coordinate and Haversine fallbacks |
+| Optional machine learning | pandas, scikit-learn, and joblib |
 
----
+## Project structure
 
-##  Project Structure
-
-```
-emergency-response-system/
+```text
+ResQNet/
 ├── backend/
-│   ├── main.py
-│   ├── database.py
-│   ├── config.py
-│   ├── schemas.py
-│   ├── queries/          # raw SQL functions, grouped by table
-│   ├── routes/           # API endpoints
-│   ├── services/         # priority scoring, allocation logic, map calls
-│   ├── ml/                # optional ML model training + artifacts
-│   ├── requirements.txt
-│   └── .env
-├── frontend_streamlit/
-│   ├── app.py
-│   ├── api_client.py
-│   ├── pages/
+│   ├── main.py                 # FastAPI application and /health endpoint
+│   ├── config.py               # Environment-backed configuration
+│   ├── database.py             # MySQL connection handling
+│   ├── dependencies.py         # Database and JWT dependencies
+│   ├── schemas.py              # Pydantic request and response models
+│   ├── routes/                 # Authentication, emergency, and resource endpoints
+│   ├── queries/                # Raw SQL query functions
+│   ├── services/               # Authentication, maps, allocation, and priority logic
+│   ├── ml/                     # Training data, training scripts, and model artifact
 │   └── requirements.txt
 ├── database/
-│   └── schema.sql
+│   └── schema.sql              # Database, tables, view, and dispatch trigger
+├── frontend_streamlit/
+│   ├── app.py                  # Login, registration, and role-based navigation
+│   ├── api_client.py           # HTTP client for the FastAPI backend
+│   ├── pages/
+│   │   ├── 1_Report_Emergency.py
+│   │   ├── 2_Operator_Dashboard.py
+│   │   └── 3_Admin_Panel.py
+│   └── requirements.txt
+├── tests/
+│   └── test_priority.py
 └── README.md
 ```
 
----
+## Requirements
 
-##  Setup Instructions
+- Python 3.10 or newer
+- MySQL Server running locally or in Docker/XAMPP
+- PowerShell on Windows, or an equivalent shell on another platform
+- Optional: a Geoapify API key for address lookup, driving routes, and static maps
 
-### 1. Prerequisites
-- Python 3.10+
-- MySQL Server (running locally, or via XAMPP/Docker)
-- A free [Geoapify](https://www.geoapify.com/) API key (no credit card required)
+## Run locally
 
-### 2. Clone the repository
-```bash
-git clone <your-repo-url>
-cd emergency-response-system
-```
+Run these commands from the repository root.
 
-### 3. Set up the database
-Open MySQL and run:
-```bash
-mysql -u root -p < database/schema.sql
-```
-This creates the `emergency_db` database with all tables, the `active_emergencies` view, and the auto-update trigger.
-
-### 4. Configure environment variables
-Create a `.env` file inside `backend/`:
-```
-DB_HOST=localhost
-DB_USER=root
-DB_PASSWORD=your_mysql_password
-DB_NAME=emergency_db
-JWT_SECRET=some_random_secret_string
-GEOAPIFY_API_KEY=your_geoapify_key
-```
-
-### 5. Install backend dependencies and run it
-```bash
-cd backend
-pip install -r requirements.txt
-uvicorn main:app --reload
-```
-Backend runs at `http://localhost:8000` — visit `http://localhost:8000/docs` to test every endpoint directly.
-
-### 6. Install frontend dependencies and run it
-Open a new terminal:
-```bash
-cd frontend_streamlit
-pip install -r requirements.txt
-streamlit run app.py
-```
-Frontend runs at `http://localhost:8501`.
-
----
-
-##  How It Works
-
-1. A citizen submits an emergency report (type, severity, people affected, address) via Streamlit
-2. The backend converts the address to coordinates using Geoapify's Geocoding API
-3. A priority score is calculated from severity + people affected
-4. The emergency is saved to MySQL
-5. The operator dashboard displays all active emergencies on a map, sorted by priority
-6. When an operator clicks **Dispatch**, the system filters available matching resources, checks real road distance via Geoapify's Routing API, and assigns the best-scoring one
-7. A MySQL trigger automatically updates the resource's and emergency's status once the dispatch is recorded
-
-##  Run Locally
-
-The commands below are run from the repository root in two PowerShell terminals.
-
-### 1. Create an environment and install dependencies
+### 1. Create a virtual environment
 
 ```powershell
 py -m venv .venv
@@ -131,44 +79,108 @@ pip install -r backend\requirements.txt
 pip install -r frontend_streamlit\requirements.txt
 ```
 
-### 2. Create the database and configuration
+### 2. Create the database
 
-Start MySQL, then run:
+Start MySQL and apply the schema:
 
 ```powershell
 mysql -u root -p < database\schema.sql
-Copy-Item backend\.env.example backend\.env
 ```
 
-Edit `backend/.env` with your MySQL password. Add a Geoapify key for address lookup, road routing, and the static map. Without a key, enter a location as `latitude,longitude`; routing uses a local Haversine estimate and the rest of the application remains usable.
+The schema creates the `emergency_db` database and the `users`, `resources`, `emergencies`, and `dispatches` tables. It also creates the `active_emergencies` view and the dispatch trigger.
 
-### 3. Start the API
+### 3. Configure the backend
 
-```powershell
-\.venv\Scripts\Activate.ps1
-uvicorn backend.main:app --reload
+Create `backend/.env` with values appropriate for your MySQL installation:
+
+```env
+DB_HOST=localhost
+DB_PORT=3306
+DB_USER=root
+DB_PASSWORD=your_mysql_password
+DB_NAME=emergency_db
+JWT_SECRET=replace_with_a_long_random_secret
+GEOAPIFY_API_KEY=your_geoapify_key
 ```
 
-Test `http://localhost:8000/health` and use `http://localhost:8000/docs` for the interactive API.
+`GEOAPIFY_API_KEY` may be left empty for local coordinate-based testing. With no key, enter locations as `latitude,longitude`; dispatch distance uses a Haversine estimate multiplied by `1.25` instead of a Geoapify driving route. The default JWT secret is for development only and should be replaced.
 
-### 4. Start Streamlit
+### 4. Start the API
 
-In a second terminal:
+In one terminal, from the repository root:
 
 ```powershell
-\.venv\Scripts\Activate.ps1
+.\.venv\Scripts\Activate.ps1
+uvicorn backend.main:app --reload --port 8000
+```
+
+Check `http://localhost:8000/health` and open `http://localhost:8000/docs` for the interactive API documentation.
+
+### 5. Start Streamlit
+
+The frontend client defaults to `http://localhost:8001`, so set it to the API port used above before starting Streamlit:
+
+```powershell
+$env:RESQNET_API_URL = "http://localhost:8000"
+.\.venv\Scripts\Activate.ps1
 streamlit run frontend_streamlit\app.py
 ```
 
-Open `http://localhost:8501`, create an account, and use the sidebar pages. Use an `admin` account to add ambulances and fire trucks. Operators can dispatch and resolve emergencies.
+Open `http://localhost:8501`. The sidebar pages are selected from the authenticated user role:
 
-##  ML Training
+| Role | Available UI | Main actions |
+| --- | --- | --- |
+| Citizen | Report emergency | Create reports, view history, complete assigned reports |
+| Operator | Operator dashboard | View active incidents, inspect compatible units, dispatch, complete tasks |
+| Admin | Admin panel | Add resources, view resources, release dispatched resources |
 
-The default priority calculation is deterministic and does not require a model. It uses severity points plus a capped people-affected bonus. The optional model learns the same two input features from a CSV and is loaded only when `USE_ML_PRIORITY=true`.
+New registrations are always created as `citizen` accounts. Operator and admin accounts must be assigned directly in the database for development or provisioned by an administrative process that is not included in this repository. For example, after registering an account, update its role in MySQL:
 
-### Training data location and format
+```sql
+USE emergency_db;
+UPDATE users SET role = 'operator' WHERE email = 'operator@example.com';
+UPDATE users SET role = 'admin' WHERE email = 'admin@example.com';
+```
 
-Put training data at `backend/ml/training_data.csv`. It must contain these numeric columns:
+## Application flow
+
+1. A citizen creates an account and signs in.
+2. The citizen submits an emergency type, severity, number of people affected, and either an address or GPS coordinates.
+3. The API resolves the location, calculates a priority score from 0 to 100, and stores the report with status `reported`.
+4. An operator sees active reports ordered by priority and can inspect available compatible resources.
+5. The allocation service filters resources by type and ranks the remaining units by distance. Geoapify driving distance is used when available; otherwise the local fallback is used.
+6. Dispatching creates one dispatch record. The MySQL trigger changes the emergency to `assigned` and the resource to `dispatched`.
+7. The citizen, operator, or admin can complete an assigned emergency. The API marks it `resolved` and makes its resource available again.
+
+## API overview
+
+All endpoints below except registration, login, and health require `Authorization: Bearer <token>`.
+
+| Method | Endpoint | Access | Purpose |
+| --- | --- | --- | --- |
+| GET | `/health` | Public | API and priority-model status |
+| POST | `/register` | Public | Create a citizen account |
+| POST | `/login` | Public | Return a JWT and role |
+| POST | `/emergencies` | Citizen | Report an emergency |
+| GET | `/emergencies` | Authenticated | List emergencies; citizens see their own reports |
+| PATCH | `/emergencies/{emergency_id}/resolve` | Citizen, operator, admin | Complete an assigned emergency |
+| GET | `/resources` | Operator, admin | List resources, optionally with `available_only=true` |
+| POST | `/resources` | Admin | Add an ambulance or fire truck |
+| GET | `/resources/for-emergency/{emergency_id}` | Operator | Rank compatible available resources |
+| PATCH | `/resources/{resource_id}/release` | Admin | Release a resource and complete its task |
+| POST | `/emergencies/{emergency_id}/dispatch` | Operator | Dispatch a selected or best-ranked resource |
+| GET | `/dispatches` | Operator | View dispatch history |
+| GET | `/map-url` | Operator | Return a Geoapify static map URL when configured |
+
+## Optional priority model
+
+The default priority calculation is deterministic:
+
+- Severity points are `20` for low, `50` for medium, `75` for high, and `100` for critical.
+- The people-affected bonus is two points per person, capped at 30.
+- The final formula score is capped at 100.
+
+The optional model uses `severity_points` and `people_affected` to predict `priority_score`. Training data belongs in `backend/ml/training_data.csv` and must contain these numeric columns:
 
 ```csv
 severity_points,people_affected,priority_score
@@ -177,69 +189,36 @@ severity_points,people_affected,priority_score
 100,15,100
 ```
 
-`severity_points` should normally be `20` (low), `50` (medium), `75` (high), or `100` (critical). `priority_score` is the target value from 0 to 100. Replace the sample CSV with historical, reviewed incidents only; do not put passwords, names, addresses, or other personally identifying information into the training file.
-
-### Generate, train, and enable the model
+Generate sample data and train the model from the repository root:
 
 ```powershell
 python -m backend.ml.generate_simulation_data
 python -m backend.ml.train_model
 ```
 
-Training writes `backend/ml/priority_model.joblib`. This binary artifact is ignored by Git and is loaded by `priority_service.py`. To enable it, set this in `backend/.env`, then restart FastAPI:
+Enable the trained artifact in `backend/.env` and restart the API:
 
 ```env
 USE_ML_PRIORITY=true
 MODEL_PATH=backend/ml/priority_model.joblib
 ```
 
-The training command prints the test mean absolute error. Keep that metric with the dataset version when comparing models. Re-run training whenever the CSV changes. The API health endpoint reports whether the artifact exists and whether formula or ML scoring is active.
+The `/health` response reports whether the artifact exists and whether formula or ML scoring is active. Do not place names, addresses, passwords, or other personally identifying information in training data.
 
-##  API Authentication Flow
+## Tests
 
-1. `POST /register` with a name, email, and password. New accounts are always citizens.
-2. `POST /login` to receive a JWT and role.
-3. Send `Authorization: Bearer <token>` on protected requests.
-4. Citizens can report emergencies and view only their own reports. Operators can view, dispatch, and resolve active emergencies. Admins can do operator actions and add resources; neither role can use the citizen reporting endpoint.
+The current automated test coverage includes the priority calculation:
 
-For a no-key smoke test, register a user, add resources using coordinates such as `40.7128,-74.0060`, report an emergency using the same coordinate format, and dispatch it from the operator dashboard.
+```powershell
+.\.venv\Scripts\Activate.ps1
+python -m pytest
+```
 
----
+The API and Streamlit workflows require a running MySQL instance and are currently best verified through the local application and FastAPI Swagger UI.
 
-##  API Overview
+## Current limitations
 
-| Method | Endpoint | Purpose |
-|---|---|---|
-| POST | `/register` | Create a new user account |
-| POST | `/login` | Authenticate and receive a JWT token |
-| POST | `/emergencies` | Report a new emergency |
-| GET | `/emergencies` | List emergencies (optionally filter by status) |
-| GET | `/resources` | List resources (optionally filter by availability) |
-| POST | `/resources` | Add a new resource (admin) |
-| POST | `/emergencies/{id}/dispatch` | Dispatch the best available resource to an emergency |
-
-Full interactive documentation is available at `/docs` once the backend is running.
-
----
-
-##  Team
-
-| Role | Responsibility |
-|---|---|
-| Database | Schema, raw SQL queries, authentication |
-| Intelligence | Priority scoring (formula + optional ML model) |
-| Allocation & Maps | Geoapify integration, dispatch decision logic |
-| Frontend | Streamlit pages, API routing, end-to-end integration |
-
----
-
-##  Future Improvements
-
-- Interactive (clickable) map for setting emergency location
-- Real-time notifications for operators
-- Hospital bed-availability tracking and integration
-- Historical analytics dashboard for response-time trends
-- Deployment via Docker for easier setup
-
----
-
+- There is no built-in workflow for creating operator or admin accounts.
+- Dispatch ranking uses distance after compatibility filtering; it does not combine distance with priority weighting.
+- The fallback map is a coordinate map rather than an interactive route map.
+- Notifications and hospital bed availability are not implemented.
