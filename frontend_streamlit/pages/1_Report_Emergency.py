@@ -41,24 +41,46 @@ st.subheader('My emergency reports')
 try:
     own_reports = emergencies(token)
     if own_reports:
-        report_table = pd.DataFrame(own_reports)
-        st.dataframe(
-            report_table[[
-                'emergency_id', 'type', 'severity', 'status', 'priority_score',
-                'latitude', 'longitude', 'assigned_resource_name',
-                'assigned_resource_type', 'assigned_resource_status',
-            ]],
-            use_container_width=True,
-            hide_index=True,
-        )
+        active_reports = [item for item in own_reports if item['status'] != 'resolved']
+        completed_reports = [item for item in own_reports if item['status'] == 'resolved']
+        summary_columns = st.columns(3)
+        summary_columns[0].metric('Total reports', len(own_reports))
+        summary_columns[1].metric('Active', len(active_reports))
+        summary_columns[2].metric('Completed', len(completed_reports))
+
+        if active_reports:
+            st.caption('Reported = waiting for an operator. Assigned = a resource is on the task.')
+            active_table = pd.DataFrame(active_reports)
+            st.dataframe(
+                active_table[[
+                    'emergency_id', 'type', 'severity', 'status', 'priority_score',
+                    'assigned_resource_name', 'assigned_resource_type',
+                    'assigned_resource_status',
+                ]],
+                use_container_width=True,
+                hide_index=True,
+            )
+        if completed_reports:
+            st.caption('Completed reports are kept as history. Their assigned resource is available again.')
+            completed_table = pd.DataFrame(completed_reports)
+            st.dataframe(
+                completed_table[[
+                    'emergency_id', 'type', 'severity', 'status', 'priority_score',
+                    'assigned_resource_name', 'assigned_resource_type',
+                    'assigned_resource_status',
+                ]],
+                use_container_width=True,
+                hide_index=True,
+            )
         assigned = [item for item in own_reports if item['status'] == 'assigned']
         if assigned:
-            selected = st.selectbox('Completed emergency', [item['emergency_id'] for item in assigned])
+            selected = st.selectbox('Task to mark complete', [item['emergency_id'] for item in assigned])
+            st.caption('Marking the task complete changes the emergency to resolved and frees its resource.')
             if st.button('Mark my emergency complete'):
                 st.success(resolve(token, selected))
                 st.rerun()
         else:
-            st.caption('You can mark your emergency complete after a resource has been assigned.')
+            st.caption('You can mark an emergency complete after an operator assigns a resource.')
     else:
         st.info('No emergency reports yet.')
 except Exception as error:

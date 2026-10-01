@@ -14,7 +14,7 @@ st.caption('Emergency reporting and response coordination')
 
 if st.session_state.token:
     st.success(f"Signed in as {st.session_state.role}. Use the pages in the sidebar to continue.")
-    if st.button('Sign out'):
+    if st.sidebar.button('Sign out'):
         st.session_state.clear()
         st.rerun()
 else:
@@ -33,6 +33,7 @@ else:
                 st.rerun()
             except Exception as error:
                 st.error(str(error))
+
     with register_tab:
         with st.form('register'):
             name = st.text_input('Name')
@@ -46,3 +47,14 @@ else:
                 st.success('Account created. Sign in from the first tab.')
             except Exception as error:
                 st.error(str(error))
+
+role = st.session_state.get('role')
+pages = []
+if role == 'citizen':
+    pages.append(st.Page('pages/1_Report_Emergency.py', title='Report emergency'))
+elif role == 'operator':
+    pages.append(st.Page('pages/2_Operator_Dashboard.py', title='Operator dashboard'))
+elif role == 'admin':
+    pages.append(st.Page('pages/3_Admin_Panel.py', title='Admin panel'))
+if pages:
+    st.navigation(pages).run()

@@ -1,7 +1,7 @@
 import pandas as pd
 import streamlit as st
 
-from api_client import add_resource, resources
+from api_client import add_resource, release_resource, resources
 
 st.title('Resource administration')
 token = st.session_state.get('token')
@@ -35,6 +35,29 @@ if submitted:
 
 try:
     data = resources(token)
+    available = [item for item in data if item['status'] == 'available']
+    status_columns = st.columns(3)
+    status_columns[0].metric('Total resources', len(data))
+    status_columns[1].metric('Available', len(available))
+    status_columns[2].metric('Dispatched', len(data) - len(available))
+    st.caption('Available resources can be assigned. Dispatched resources are currently busy.')
     st.dataframe(pd.DataFrame(data), use_container_width=True, hide_index=True)
+    dispatched = [item for item in data if item['status'] == 'dispatched']
+    if dispatched:
+        st.subheader('Release a resource')
+        selected_resource = st.selectbox(
+            'Dispatched resource',
+            [item['resource_id'] for item in dispatched],
+            format_func=lambda resource_id: next(
+                f"{item['name']} ({item['type']})"
+                for item in dispatched
+                if item['resource_id'] == resource_id
+            ),
+        )
+        st.caption('Releasing also completes its assigned emergency.')
+        if st.button('Release resource'):
+            release_resource(token, selected_resource)
+            st.success('Resource is available again.')
+            st.rerun()
 except Exception as error:
     st.error(str(error))

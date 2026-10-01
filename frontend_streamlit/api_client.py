@@ -44,8 +44,17 @@ def add_resource(token: str, resource: dict):
     return request('POST', '/resources', token, json=resource)
 
 
-def dispatch(token: str, emergency_id: int):
-    return request('POST', f'/emergencies/{emergency_id}/dispatch', token)
+def dispatch(token: str, emergency_id: int, resource_id: int | None = None):
+    query = f'?resource_id={resource_id}' if resource_id is not None else ''
+    return request('POST', f'/emergencies/{emergency_id}/dispatch{query}', token)
+
+
+def emergency_resources(token: str, emergency_id: int):
+    return request('GET', f'/resources/for-emergency/{emergency_id}', token)
+
+
+def release_resource(token: str, resource_id: int):
+    return request('PATCH', f'/resources/{resource_id}/release', token)
 
 
 def resolve(token: str, emergency_id: int):

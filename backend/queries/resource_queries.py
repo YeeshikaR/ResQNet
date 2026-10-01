@@ -23,3 +23,25 @@ def get_resource(connection, resource_id: int):
     with connection.cursor() as cursor:
         cursor.execute('SELECT * FROM resources WHERE resource_id = %s', (resource_id,))
         return cursor.fetchone()
+
+
+def release_resource(connection, resource_id: int) -> bool:
+    with connection.cursor() as cursor:
+        cursor.execute('SELECT resource_id FROM resources WHERE resource_id = %s', (resource_id,))
+        if not cursor.fetchone():
+            return False
+        cursor.execute(
+            "UPDATE resources SET status = 'available' WHERE resource_id = %s",
+            (resource_id,),
+        )
+        cursor.execute(
+            """
+            UPDATE emergencies e
+            JOIN dispatches d ON d.emergency_id = e.emergency_id
+            SET e.status = 'resolved'
+            WHERE d.resource_id = %s AND e.status = 'assigned'
+            """,
+            (resource_id,),
+        )
+    connection.commit()
+    return True

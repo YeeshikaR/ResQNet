@@ -4,9 +4,9 @@ from pymysql.err import IntegrityError
 from backend.dependencies import db_connection, require_roles
 from backend.queries.dispatch_queries import get_dispatch_report, insert_dispatch
 from backend.queries.emergency_queries import get_emergencies, get_emergency
-from backend.queries.resource_queries import get_resources, insert_resource
+from backend.queries.resource_queries import get_resources, insert_resource, release_resource
 from backend.schemas import ResourceCreate
-from backend.services.allocation_service import choose_resource
+from backend.services.allocation_service import choose_resource, rank_resources
 from backend.services.map_service import address_to_coords, build_map_url
 
 router = APIRouter(tags=['resources'])
@@ -32,15 +32,45 @@ def add_resource(payload: ResourceCreate, user=Depends(require_roles('admin')), 
     return {'resource_id': resource_id, 'message': 'Resource added'}
 
 
+@router.get('/resources/for-emergency/{emergency_id}')
+def resources_for_emergency(
+    emergency_id: int,
+    user=Depends(require_roles('operator')),
+    connection=Depends(db_connection),
+):
+    emergency = get_emergency(connection, emergency_id)
+    if not emergency:
+        raise HTTPException(status_code=404, detail='Emergency not found')
+    return rank_resources(emergency, get_resources(connection, available_only=True))
+
+
+@router.patch('/resources/{resource_id}/release')
+def release(resource_id: int, user=Depends(require_roles('admin')), connection=Depends(db_connection)):
+    if not release_resource(connection, resource_id):
+        raise HTTPException(status_code=404, detail='Resource not found')
+    return {'message': 'Resource released and available again', 'resource_id': resource_id}
+
+
 @router.post('/emergencies/{emergency_id}/dispatch')
-def dispatch(emergency_id: int, user=Depends(require_roles('operator', 'admin')), connection=Depends(db_connection)):
+def dispatch(
+    emergency_id: int,
+    resource_id: int | None = None,
+    user=Depends(require_roles('operator')),
+    connection=Depends(db_connection),
+):
     emergency = get_emergency(connection, emergency_id)
     if not emergency:
         raise HTTPException(status_code=404, detail='Emergency not found')
     if emergency['status'] != 'reported':
         raise HTTPException(status_code=409, detail='Emergency is not awaiting dispatch')
     try:
-        resource, distance_km = choose_resource(emergency, get_resources(connection, available_only=True))
+        ranked = rank_resources(emergency, get_resources(connection, available_only=True))
+        if not ranked:
+            raise ValueError(f"No available resource found for {emergency['type']}")
+        resource = next((item for item in ranked if item['resource_id'] == resource_id), ranked[0])
+        if resource_id is not None and resource['resource_id'] != resource_id:
+            raise ValueError('Selected resource is not available for this emergency')
+        distance_km = resource['distance_km']
         dispatch_id = insert_dispatch(connection, emergency_id, resource['resource_id'], distance_km)
         resource['status'] = 'dispatched'
     except (ValueError, IntegrityError) as error:
@@ -50,12 +80,12 @@ def dispatch(emergency_id: int, user=Depends(require_roles('operator', 'admin'))
 
 
 @router.get('/dispatches')
-def dispatches(user=Depends(require_roles('operator', 'admin')), connection=Depends(db_connection)):
+def dispatches(user=Depends(require_roles('operator')), connection=Depends(db_connection)):
     return get_dispatch_report(connection)
 
 
 @router.get('/map-url')
-def map_url(user=Depends(require_roles('operator', 'admin')), connection=Depends(db_connection)):
+def map_url(user=Depends(require_roles('operator')), connection=Depends(db_connection)):
     emergencies = get_emergencies(connection)
     resources = get_resources(connection)
     return {'url': build_map_url(emergencies, resources)}
