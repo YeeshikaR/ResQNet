@@ -1,8 +1,10 @@
 # ResQNet
 
-ResQNet is a role-based emergency reporting and response coordination application. Citizens can report fire, medical, and accident emergencies. The FastAPI backend geocodes locations, calculates a priority score, stores the incident in MySQL, and exposes authenticated API endpoints. Operators can review active incidents, compare compatible available resources by distance, dispatch a unit, and complete tasks. Administrators can add and release ambulances and fire trucks.
+ResQNet is a role-based emergency reporting and response coordination application designed to streamline emergency reporting, prioritization, and resource allocation.
 
-The user interface is a Streamlit application and the backend is a FastAPI application. Geoapify is optional: it provides address geocoding, driving routes, and a static map when an API key is configured. Coordinate input and a local distance fallback keep the application usable for local testing without Geoapify.
+Citizens can report fire, medical, and accident emergencies. Operators can monitor active incidents, identify compatible emergency response units, and dispatch available resources. Administrators can manage ambulances and fire trucks.
+
+The application combines a Streamlit frontend, FastAPI backend, and MySQL database, with optional Geoapify integration for location services.
 
 ## Features
 
