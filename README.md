@@ -118,7 +118,7 @@ Check `http://localhost:8000/health` and open `http://localhost:8000/docs` for t
 
 ### 5. Start Streamlit
 
-The frontend client defaults to `http://localhost:8001`, so set it to the API port used above before starting Streamlit:
+The frontend client defaults to `http://localhost:8000`, matching the API command above. To use a different API port, set it before starting Streamlit:
 
 ```powershell
 $env:RESQNET_API_URL = "http://localhost:8000"
@@ -133,6 +133,11 @@ Open `http://localhost:8501`. The sidebar pages are selected from the authentica
 | Citizen | Report emergency | Create reports, view history, complete assigned reports |
 | Operator | Operator dashboard | View active incidents, inspect compatible units, dispatch, complete tasks |
 | Admin | Admin panel | Add resources, view resources, release dispatched resources |
+
+If sign-in displays `Database unavailable`, MySQL is not reachable on the configured
+host and port. Start the MySQL service, apply `database\schema.sql`, and verify the
+database settings in `backend\.env`. The default configuration expects MySQL at
+`localhost:3306`.
 
 New registrations are always created as `citizen` accounts. Operator and admin accounts must be assigned directly in the database for development or provisioned by an administrative process that is not included in this repository. For example, after registering an account, update its role in MySQL:
 

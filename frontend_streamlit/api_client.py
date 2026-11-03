@@ -2,14 +2,28 @@ import os
 
 import requests
 
-API_URL = os.getenv('RESQNET_API_URL', 'http://localhost:8001').rstrip('/')
+API_URL = os.getenv('RESQNET_API_URL', 'http://localhost:8000').rstrip('/')
 
 
 def request(method: str, path: str, token: str | None = None, **kwargs):
     headers = kwargs.pop('headers', {})
     if token:
         headers['Authorization'] = f'Bearer {token}'
-    response = requests.request(method, f'{API_URL}{path}', headers=headers, timeout=20, **kwargs)
+    try:
+        response = requests.request(
+            method,
+            f'{API_URL}{path}',
+            headers=headers,
+            timeout=20,
+            **kwargs,
+        )
+    except requests.ConnectionError as error:
+        raise RuntimeError(
+            f'Cannot connect to the ResQNet API at {API_URL}. '
+            'Start the backend with: uvicorn backend.main:app --reload --port 8000'
+        ) from error
+    except requests.Timeout as error:
+        raise RuntimeError(f'The ResQNet API at {API_URL} did not respond in time.') from error
     if not response.ok:
         try:
             detail = response.json().get('detail', response.text)

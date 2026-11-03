@@ -4,3 +4,4 @@ __pycache__/
 .venv/
 backend/ml/priority_model.joblib
 .streamlit/
+docs

@@ -1,5 +1,6 @@
 from fastapi import Depends, Header, HTTPException
 from jose import JWTError, jwt
+from pymysql import MySQLError
 
 from backend.config import JWT_ALGORITHM, JWT_SECRET
 from backend.database import get_connection
@@ -7,7 +8,16 @@ from backend.queries.user_queries import get_user_by_id
 
 
 def db_connection():
-    connection = get_connection()
+    try:
+        connection = get_connection()
+    except MySQLError as error:
+        raise HTTPException(
+            status_code=503,
+            detail=(
+                'Database unavailable. Start MySQL and verify DB_HOST, DB_PORT, '
+                'DB_USER, DB_PASSWORD, and DB_NAME in backend/.env.'
+            ),
+        ) from error
     try:
         yield connection
     finally:
